@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCM Certificate Query</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #34495e;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        button {
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #langToggle {
+            background-color: #95a5a6;
+            margin-bottom: 20px;
+            width: auto;
+            font-size: 14px;
+            padding: 8px 16px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #langToggle:hover {
+            background-color: #7f8c8d;
+        }
+        #results {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .no-results {
+            text-align: center;
+            color: #e74c3c;
+            font-style: italic;
+        }
+        .info {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">MCM 证书查询</h1>
+        <button id="langToggle">切换到英文</button>
+        <div class="form-group">
+            <p class="info" id="queryInfo">按姓名搜索。所有搜索不区分大小写，且使用英文。</p>
+        </div>
+        <div class="form-group">
+            <label id="searchLabel" for="searchInput">搜索词（姓名）：</label>
+            <input type="text" id="searchInput" placeholder="e.g., Yexiang Wei">
+            <p class="info" id="tips">提示：输入姓名必须使用英文，名在前，姓在后，多个名字之间不要有空格。搜索不区分大小写并忽略空格。</p>
+        </div>
+        <button id="searchBtn">搜索</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let data = {};
+        let currentLang = 'zh';
+        let currentResults = [];
+        let currentNormalizedSearch = '';
+
+        const translations = {
+            en: {
+                title: 'MCM Certificate Query',
+                queryInfo: 'Search by Name. All searches are case-insensitive and in English.',
+                searchLabel: 'Search Term (Name):',
+                searchBtn: 'Search',
+                langToggle: 'Switch to Chinese',
+                tips: 'Tips: Enter names in English with first name followed by last name, no spaces between multiple names if applicable. Searches are case-insensitive and ignore spaces.',
+                noSearchTerm: 'Please enter a search term.',
+                noResults: 'No results found.',
+                downloadTip: 'To download the certificate, visit <a href="https://www.contest.comap.com/Certform/index.html" target="_blank">this link</a> and enter the year and team ID from the results.',
+                tableHeaders: ['Year', 'Team ID', 'School', 'Members', 'Award']
+            },
+            zh: {
+                title: 'MCM 证书查询',
+                queryInfo: '按姓名搜索。所有搜索不区分大小写，且使用英文。',
+                searchLabel: '搜索词（姓名）：',
+                searchBtn: '搜索',
+                langToggle: '切换到英文',
+                tips: '提示：输入姓名必须使用英文，名在前，姓在后，多个名字之间不要有空格。搜索不区分大小写并忽略空格。',
+                noSearchTerm: '请输入搜索词。',
+                noResults: '未找到结果。',
+                downloadTip: '要下载证书，请访问<a href="https://www.contest.comap.com/Certform/index.html" target="_blank">此链接</a>，并输入结果中的年份和队伍编号。',
+                tableHeaders: ['年份', '队伍编号', '学校', '成员', '奖项']
+            }
+        };
+
+        // Function to update language
+        function updateLanguage() {
+            const lang = translations[currentLang];
+            document.getElementById('title').textContent = lang.title;
+            document.getElementById('queryInfo').textContent = lang.queryInfo;
+            document.getElementById('searchLabel').textContent = lang.searchLabel;
+            document.getElementById('searchBtn').textContent = lang.searchBtn;
+            document.getElementById('langToggle').textContent = lang.langToggle;
+            document.getElementById('tips').textContent = lang.tips;
+
+            // Re-render results if any
+            renderResults();
+        }
+
+        // Function to render results
+        function renderResults() {
+            const lang = translations[currentLang];
+            const resultsDiv = document.getElementById('results');
+            if (currentResults.length === 0) {
+                if (currentNormalizedSearch) {
+                    resultsDiv.innerHTML = `<p class="no-results">${lang.noResults}</p>`;
+                }
+                return;
+            }
+
+            let table = '<table><thead><tr>';
+            lang.tableHeaders.forEach(header => {
+                table += `<th>${header}</th>`;
+            });
+            table += '</tr></thead><tbody>';
+            currentResults.forEach(result => {
+                table += `<tr><td>${result.year}</td><td>${result.teamId}</td><td>${result.school}</td><td>${result.members}</td><td>${result.award}</td></tr>`;
+            });
+            table += '</tbody></table>';
+            resultsDiv.innerHTML = table + `<p class="info">${lang.downloadTip}</p>`;
+        }
+
+        // Load processed_data.json
+        fetch('processed_data.json')
+            .then(response => response.json())
+            .then(json => {
+                data = json;
+            })
+            .catch(error => console.error('Error loading data:', error));
+
+        // Language toggle
+        document.getElementById('langToggle').addEventListener('click', () => {
+            currentLang = currentLang === 'en' ? 'zh' : 'en';
+            updateLanguage();
+        });
+
+        // Search functionality
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const lang = translations[currentLang];
+            const searchInput = document.getElementById('searchInput').value.trim().toLowerCase();
+            currentNormalizedSearch = searchInput.replace(/\s+/g, '');
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            if (!searchInput) {
+                resultsDiv.innerHTML = `<p class="no-results">${lang.noSearchTerm}</p>`;
+                currentResults = [];
+                return;
+            }
+
+            let keys = data.name_to_teams[currentNormalizedSearch] || [];
+
+            currentResults = [];
+            keys.forEach(key => {
+                const team = data.teams[key];
+                if (team) {
+                    currentResults.push(team);
+                }
+            });
+
+            renderResults();
+        });
+
+        // Initialize
+        updateLanguage();
+    </script>
+</body>
+</html>
